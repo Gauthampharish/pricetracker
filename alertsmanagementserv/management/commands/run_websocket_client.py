@@ -6,8 +6,22 @@ from alertsmanagementserv.models import Alert
 from asgiref.sync import sync_to_async
 import logging
 from datetime import datetime, timedelta
+from django.core.mail import send_mail
+from django.conf import settings
+
+from celery import shared_task
 
 logger = logging.getLogger(__name__)
+@shared_task
+def send_email_task(user_email, symbol):
+    
+    send_mail(
+        'Price Alert Triggered',
+        f'The target price for {symbol} has been reached.',
+        settings.EMAIL_HOST_USER,
+        [user_email],
+        fail_silently=False,
+    )
 
 class Command(BaseCommand):
     help = 'Runs the Binance WebSocket client for price alerts for 1 minute'
@@ -19,7 +33,7 @@ class Command(BaseCommand):
     def get_symbols(self):
         return list(Alert.objects.values_list('cryptocurrency', flat=True).distinct())
     @sync_to_async
-    def update_alert(self, alert, status, price):
+    def update_alert(self, alert, status):
         alert.status = status
         alert.save()
 
@@ -30,46 +44,54 @@ class Command(BaseCommand):
     @sync_to_async
     def get_target_price(self, alert):
         return alert.target_price
+    
+
+    
+        
     async def log_alert(self, symbol, price, alert):
+
         user_email= await self.get_user_email(alert)
         target_price= await self.get_target_price(alert)
         self.stdout.write(self.style.SUCCESS(
             f"ALERT TRIGGERED: {symbol} at {price}. "
             f"User: {user_email}, Target: {target_price}"
         ))
+        send_email_task.delay(user_email, symbol)
+
+    
 
     async def process_ticker(self, ticker,symbols):
         symbol = ticker['s']
         if symbol not in symbols:
             return
         price = round(float(ticker['c']))
-        self.stdout.write(self.style.SUCCESS(f"{price}{symbol} jhsg"))
+        
         alerts = await self.get_alerts(symbol)
-        self.stdout.write(self.style.SUCCESS("got allerts"))
+        
         
         for alert in alerts:
             if alert.target_price<=price:
                 # Log alert in a different color
-                self.log_alert(symbol, price, alert)
+                await self.log_alert(symbol, price, alert)
+                self.stdout.write(self.style.SUCCESS(
+                    f"ALERT TRIGGERED: {symbol} at {price}. "
+        ))
                 
-                # Update alert status
-                await self.update_alert(alert, 'triggered', price)
+                await self.update_alert(alert, 'triggered')
           
     async def binance_websocket(self):
         uri = "wss://stream.binance.com:9443/ws/!ticker@arr"
-        end_time = datetime.now() + timedelta(seconds=20
-                                              )
         symbols= await self.get_symbols()
         async with websockets.connect(uri) as websocket:
             self.stdout.write(self.style.SUCCESS("Connected to Binance WebSocket"))
-            while datetime.now() < end_time:
+            while True:
                 try:
                     response = await asyncio.wait_for(websocket.recv(), timeout=1.0)
                     data = json.loads(response)
                    
-                    self.stdout.write(self.style.SUCCESS("Received data from WebSocket"))
+                   
                     filtered_data = [ticker for ticker in data if ticker['s'] in symbols]
-                    for ticker in data:
+                    for ticker in filtered_data:
                         
                         await self.process_ticker(ticker,symbols)
                 except asyncio.TimeoutError:
@@ -77,10 +99,10 @@ class Command(BaseCommand):
                     continue
                 except websockets.exceptions.ConnectionClosed:
                     self.stdout.write(self.style.WARNING("WebSocket connection closed."))
-                    break
+                    await asyncio.sleep(5) 
             
-        self.stdout.write(self.style.SUCCESS("Finished running for 1 minute."))
+        
 
     def handle(self, *args, **options):
-        self.stdout.write(self.style.SUCCESS("Starting Binance WebSocket client for 1 minute"))
+       
         asyncio.run(self.binance_websocket())

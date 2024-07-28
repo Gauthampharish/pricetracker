@@ -11,7 +11,7 @@ class AlertSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Alert
-        fields = ['id', 'cryptocurrency', 'target_price', 'status']
+        fields = ['id', 'cryptocurrency', 'target_price', 'status', 'user']
         read_only_fields = ['id', 'user']
 
     def validate(self, data):
@@ -23,21 +23,21 @@ class AlertSerializer(serializers.ModelSerializer):
 
         Raises:
             serializers.ValidationError: If the target_price is less than or equal to 0,
-                                         if the coin field is not provided,
+                                         if the cryptocurrency field is not provided,
                                          or if a duplicate alert exists.
 
         Returns:
             dict: The validated data.
         """
         user = self.context['request'].user
-        coin = data.get('coin')
-
+        cryptocurrency = data.get('cryptocurrency')
+        target_price = data.get('target_price')
         if data['target_price'] <= 0:
             raise serializers.ValidationError("Target price must be greater than 0")
-        if not coin:
+        if not cryptocurrency:
             raise serializers.ValidationError("Coin field is required")
-        if Alert.objects.filter(user=user, coin=coin).exists():
-            raise serializers.ValidationError("Alert for this coin already exists")
+        if Alert.objects.filter(user=user, cryptocurrency=cryptocurrency,target_price=target_price).exists():
+            raise serializers.ValidationError("Alert for this cryptocurrency already exists")
 
         return data
 
