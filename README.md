@@ -1,104 +1,90 @@
-  ## Comprehensive Documentation: Cryptocurrency Price Alert System
+Comprehensive Documentation: Cryptocurrency Price Alert System
+This documentation covers the setup, API endpoints, and system architecture for the Cryptocurrency Price Alert System, which uses Django, Celery, Redis, and Binance's WebSocket API.
 
-  To provide comprehensive instructions, you should include details on setting up environment variables and configuring the application. Here’s how you can add these instructions to your README file:
-
----
-
-## Getting Started
-
+Getting Started
 This guide will help you set up and run the Price Tracker application using Docker Compose and Poetry for dependency management.
 
-### Prerequisites
+Prerequisites
+Docker: Install Docker.
+Docker Compose: Install Docker Compose.
+Poetry (Optional, if using for dependency management): Install Poetry.
+Configuration
+Before starting the application, you need to configure environment variables.
 
-- **Docker**: [Install Docker](https://docs.docker.com/get-docker/)
-- **Docker Compose**: [Install Docker Compose](https://docs.docker.com/compose/install/)
-- **Poetry** (Optional, if using for dependency management): [Install Poetry](https://python-poetry.org/docs/#installation)
+Environment Variables
+Create a .env file in the root of your project directory and add the following environment variables:
 
-### Configuration
+plaintext
+Copy code
+DEBUG=True
+EMAIL_USER=your_smtp_user
+EMAIL_PASSWORD=your_smtp_password
+EMAIL_HOST=smtp.your-email-provider.com
+EMAIL_PORT=587
 
-Before starting the application, you need to configure some environment variables.
-
-1. **Environment Variables:**
-
-   Create a `.env` file in the root of your project directory and add the following environment variables:
-
-   ```plaintext
-   DEBUG=True
-   EMAIL_USER=your_smtp_user
-   EMAIL_PASSWORD=your_smtp_password
-   EMAIL_HOST=smtp.your-email-provider.com
-   EMAIL_PORT=587
-   # Celery settings
-  CELERY_BROKER_URL=redis://redis1:6379/1
-  CELERY_RESULT_BACKEND=redis://redis1:6379/1
-  CELERY_ACCEPT_CONTENT=json
-  CELERY_TASK_SERIALIZER=json
-  CELERY_RESULT_SERIALIZER=json
-  CELERY_TIMEZONE=UTC
+# Celery settings
+CELERY_BROKER_URL=redis://redis1:6379/1
+CELERY_RESULT_BACKEND=redis://redis1:6379/1
+CELERY_ACCEPT_CONTENT=json
+CELERY_TASK_SERIALIZER=json
+CELERY_RESULT_SERIALIZER=json
+CELERY_TIMEZONE=UTC
 
 # Redis Cache settings
-REDIS_LOCATION=redis://redis0:6379/0  
-   ```
+REDIS_LOCATION=redis://redis0:6379/0
+Replace the placeholder values with your actual configuration details.
 
-   - Replace the placeholder values with your actual configuration details.
+Database Configuration
+Ensure your PostgreSQL database is running and accessible using the details provided in the .env file. Note that PostgreSQL is currently hosted directly on DigitalOcean.
 
-2. **Database Configuration:**
+Admin User
+A default admin user has been created with the following credentials:
 
-   - Ensure your PostgreSQL database is running and accessible using the details provided in the `.env` file.
-   - note postrgress is currently hosted directly in digital ocean
+Username: admin
+Password: adminpassword
+Using Docker Compose
+Clone the repository:
 
-### Using Docker Compose
+bash
+Copy code
+git clone <repository_url>
+cd <repository_directory>
+Build and start the services:
 
-1. **Clone the repository:**
+bash
+Copy code
+docker-compose up --build
+This will build the Docker images and start the services defined in your docker-compose.yml file.
 
-   ```bash
-   git clone <repository_url>
-   cd <repository_directory>
-   ```
+Access the application:
 
-2. **Build and start the services:**
+Navigate to http://localhost:8000 to access the application.
 
-   ```bash
-   docker-compose up --build
-   ```
+Stop the services:
 
-   - This will build the Docker images and start the services defined in your `docker-compose.yml` file.
+bash
+Copy code
+docker-compose down
+Using Poetry for Dependency Management
+Install Poetry:
 
-3. **Access the application:**
+Follow the instructions on the Poetry installation page.
 
-   Navigate to `http://localhost:8000` to access the application.
+Install dependencies:
 
-4. **Stop the services:**
+bash
+Copy code
+poetry install
+Run the application:
 
-   ```bash
-   docker-compose down
-   ```
+bash
+Copy code
+poetry run celery -A core worker --loglevel=info &
+poetry run python manage.py runserver 0.0.0.0:8000 &
+poetry run python manage.py run_websocket_client
+Access the application:
 
-### Using Poetry for Dependency Management
-
-1. **Install Poetry:**
-
-   Follow the instructions on the [Poetry installation page](https://python-poetry.org/docs/#installation).
-
-2. **Install dependencies:**
-
-   ```bash
-   poetry install
-   ```
-
-3. **Run the application:**
-
-   ```bash
-   poetry run celery -A core worker --loglevel=info & poetry run python manage.py runserver 0.0.0.0:8000 & poetry run python manage.py run_websocket_client
-   ```
-
-4. **Access the application:**
-
-   Navigate to `http://localhost:8000` to use the application.
-
----
-
-
+Navigate to http://localhost:8000 to use the application.
 
 
   ### Introduction
