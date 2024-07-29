@@ -1,0 +1,31 @@
+version: '3.8'
+
+services:
+  web:
+    build: .
+    container_name: price_tracker_web
+    ports:
+      - "8000:8000"
+    volumes:
+      - .:/PRICE_TRACKER
+    environment:
+      - DEBUG=True
+      - SMTP_USER=your_smtp_user
+      - SMTP_PASSWORD=your_smtp_password
+      - SMTP_HOST=smtp.your-email-provider.com
+      - SMTP_PORT=587
+    depends_on:
+
+      - redis0
+      - redis1
+
+
+
+  redis0:
+    image: redis:6
+    restart: always
+    container_name: price_tracker_redis0
+  redis1:
+    image: redis:6
+    restart: always
+    container_name: price_tracker_redis1
