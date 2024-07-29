@@ -1,20 +1,26 @@
-FROM python:3.11
+FROM python:3.12
 
 # Set the working directory in the container
 WORKDIR /PRICE_TRACKER
 
-# Copy the requirements file to the working directory
+# Copy the project files to the working directory
 COPY . .
 
+# Install pip, setuptools, and wheel
+
+# Copy the requirements file to the working directory
+COPY requirements.txt .
+RUN apt-get update && apt-get install -y python3-setuptools
+
 # Install the project dependencies
-RUN pip install poetry
-RUN poetry install
+RUN pip install -r requirements.txt
 
 # Run migrations
-#RUN poetry run python manage.py makemigrations identitymanagementserv alertsmanagementserv
-#RUN poetry run python manage.py migrate
+RUN python manage.py makemigrations identitymanagementserv alertsmanagementserv
+RUN python manage.py migrate
+
 # Expose the port that the Django server will run on
 EXPOSE 8000
 
 # Start the required services
-CMD ["sh", "-c", " poetry run celery -A core worker --loglevel=info & poetry run python manage.py runserver 0.0.0.0:8000 & poetry run python manage.py run_websocket_client"]
+CMD ["sh", "-c", "celery -A core worker --loglevel=info & python manage.py runserver 0.0.0.0:8000 & python manage.py run_websocket_client"]

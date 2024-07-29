@@ -10,22 +10,42 @@ services:
       - .:/PRICE_TRACKER
     environment:
       - DEBUG=True
-      - SMTP_USER=your_smtp_user
-      - SMTP_PASSWORD=your_smtp_password
-      - SMTP_HOST=smtp.your-email-provider.com
-      - SMTP_PORT=587
+      - EMAIL_USER=your_smtp_user
+      - EMAIL_PASSWORD=your_smtp_password
+      - EMAIL_HOST=smtp.your-email-provider.com
+      - EMAIL_PORT=587
+      - POSTGRES_DB=mydb
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=password
+      - POSTGRES_HOST=192.168.0.49
+      - POSTGRES_PORT=5432
     depends_on:
-
       - redis0
       - redis1
-
-
+      # - db
 
   redis0:
     image: redis:6
     restart: always
     container_name: price_tracker_redis0
+
   redis1:
     image: redis:6
     restart: always
     container_name: price_tracker_redis1
+
+#   db:
+#     image: postgres:13
+#     restart: always
+#     container_name: price_tracker_db
+#     environment:
+#       - POSTGRES_DB=price_tracker_db
+#       - POSTGRES_USER=price_tracker_user
+#       - POSTGRES_PASSWORD=your_postgres_password
+#     ports:
+#       - "5432:5432"
+#     volumes:
+#       - postgres_data:/var/lib/postgresql/data
+
+# volumes:
+#   postgres_data:
