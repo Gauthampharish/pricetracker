@@ -1,21 +1,28 @@
-Comprehensive Documentation: Cryptocurrency Price Alert System
+### Comprehensive Documentation: Cryptocurrency Price Alert System
+
 This documentation covers the setup, API endpoints, and system architecture for the Cryptocurrency Price Alert System, which uses Django, Celery, Redis, and Binance's WebSocket API.
 
-Getting Started
+---
+
+## Getting Started
+
 This guide will help you set up and run the Price Tracker application using Docker Compose and Poetry for dependency management.
 
-Prerequisites
-Docker: Install Docker.
-Docker Compose: Install Docker Compose.
-Poetry (Optional, if using for dependency management): Install Poetry.
-Configuration
+### Prerequisites
+
+1. **Docker:** Install Docker.
+2. **Docker Compose:** Install Docker Compose.
+3. **Poetry (Optional, if using for dependency management):** Install Poetry.
+
+### Configuration
+
 Before starting the application, you need to configure environment variables.
 
-Environment Variables
-Create a .env file in the root of your project directory and add the following environment variables:
+#### Environment Variables
 
-plaintext
-Copy code
+Create a `.env` file in the root of your project directory and add the following environment variables:
+
+```plaintext
 DEBUG=True
 EMAIL_USER=your_smtp_user
 EMAIL_PASSWORD=your_smtp_password
@@ -32,59 +39,75 @@ CELERY_TIMEZONE=UTC
 
 # Redis Cache settings
 REDIS_LOCATION=redis://redis0:6379/0
+```
+
 Replace the placeholder values with your actual configuration details.
 
-Database Configuration
-Ensure your PostgreSQL database is running and accessible using the details provided in the .env file. Note that PostgreSQL is currently hosted directly on DigitalOcean.
+#### Database Configuration
 
-Admin User
+Ensure your PostgreSQL database is running and accessible using the details provided in the `.env` file. Note that PostgreSQL is currently hosted directly on DigitalOcean.
+
+#### Admin User
+
 A default admin user has been created with the following credentials:
 
-Username: admin
-Password: adminpassword
-Using Docker Compose
-Clone the repository:
+- **Username:** `admin`
+- **Password:** `adminpassword`
 
-bash
-Copy code
-git clone <repository_url>
-cd <repository_directory>
-Build and start the services:
+---
 
-bash
-Copy code
-docker-compose up --build
-This will build the Docker images and start the services defined in your docker-compose.yml file.
+## Using Docker Compose
 
-Access the application:
+1. **Clone the repository:**
 
-Navigate to http://localhost:8000 to access the application.
+   ```bash
+   git clone <repository_url>
+   cd <repository_directory>
+   ```
 
-Stop the services:
+2. **Build and start the services:**
 
-bash
-Copy code
-docker-compose down
-Using Poetry for Dependency Management
-Install Poetry:
+   ```bash
+   docker-compose up --build
+   ```
 
-Follow the instructions on the Poetry installation page.
+   This will build the Docker images and start the services defined in your `docker-compose.yml` file.
 
-Install dependencies:
+3. **Access the application:**
 
-bash
-Copy code
-poetry install
-Run the application:
+   Navigate to [http://localhost:8000](http://localhost:8000) to access the application.
 
-bash
-Copy code
-poetry run celery -A core worker --loglevel=info &
-poetry run python manage.py runserver 0.0.0.0:8000 &
-poetry run python manage.py run_websocket_client
-Access the application:
+4. **Stop the services:**
 
-Navigate to http://localhost:8000 to use the application.
+   ```bash
+   docker-compose down
+   ```
+
+---
+
+## Using Poetry for Dependency Management
+
+1. **Install Poetry:**
+
+   Follow the instructions on the Poetry [installation page](https://python-poetry.org/docs/#installation).
+
+2. **Install dependencies:**
+
+   ```bash
+   poetry install
+   ```
+
+3. **Run the application:**
+
+   ```bash
+   poetry run celery -A core worker --loglevel=info &
+   poetry run python manage.py runserver 0.0.0.0:8000 &
+   poetry run python manage.py run_websocket_client
+   ```
+
+4. **Access the application:**
+
+   Navigate to [http://localhost:8000](http://localhost:8000) to use the application.
 
 
   ### Introduction
