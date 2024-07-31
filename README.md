@@ -99,7 +99,42 @@ A default admin user has been created with the following credentials:
   ### Introduction
   This documentation covers the API endpoints for user authentication and alert management, as well as the technical implementation of a real-time cryptocurrency price alert system. The system monitors prices using Binance's WebSocket API and sends notifications via email when user-defined conditions are met. It utilizes Django for the backend, Celery for task management, Redis for caching and task queuing, and Binance WebSocket API for real-time data.
 
+
+### Project Structure
+
+#### **core**
+- **Purpose**: Central configuration and utility functions.
+- **Contents**:
+  - **settings.py**: Main settings file, including configuration variables, environment settings, and application configurations.
+  - **urls.py**: URL routing definitions for the core application.
+  
+#### **identitymanagementserv**
+- **Purpose**: Handles user authentication, registration, and profile management.
+- **Contents**:
+  - **models.py**: Database models related to user accounts, roles, and permissions.
+  - **views.py**: Logic for handling registration, login, logout, and profile management requests.
+  - **forms.py**: Forms for user registration, login, and profile updates.
+  - **serializers.py**: Data serializers for API interactions, if applicable.
+  - **urls.py**: URL routing for identity management endpoints.
+
+  -
+#### **alertmanagementserv**
+- **Purpose**: Manages alerts and notifications within the application.
+- **Contents**:
+  - **models.py**: Database models for different types of alerts and notification settings.
+  - **views.py**: Logic for creating, viewing, and managing alerts.
+  - **serializers.py**: Serializers for alert-related data, if using APIs.
+  - **urls.py**: URL routing for alert management endpoints.
+  
+
+#### **management/commands**
+- **Purpose**: Custom Django management commands.
+- **Contents**:
+  - **run_websocket_client.py**: Custom management command for running a WebSocket client, potentially for real-time updates or communication.
+  
+
   ## API Documentation
+
   Swagger has been added for ease of checking endpoints. You can access Swagger at http://127.0.0.1:8000/swagger/.
 
   ### Authentication
