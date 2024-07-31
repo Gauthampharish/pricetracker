@@ -4,12 +4,17 @@ from rest_framework.decorators import action
 from rest_framework.response import Response
 from rest_framework_simplejwt.tokens import RefreshToken
 from .serializers import UserSerializer, LoginSerializer
+from drf_yasg import openapi
+from drf_yasg.utils import swagger_auto_schema
 
 class AuthViewSet(viewsets.ViewSet):
     """
     A viewset for handling user authentication actions such as registration and login.
     """
-
+    @swagger_auto_schema(
+        request_body=UserSerializer,
+        responses={201: openapi.Response('Created', UserSerializer)},
+    )
     @action(detail=False, methods=['post'])
     def register(self, request):
         """
@@ -27,6 +32,10 @@ class AuthViewSet(viewsets.ViewSet):
         serializer.save()
         return Response(serializer.data, status=status.HTTP_201_CREATED)
 
+
+    @swagger_auto_schema(
+        request_body=LoginSerializer,
+    )
     @action(detail=False, methods=['post'])
     def login(self, request):
         """

@@ -7,7 +7,8 @@ from rest_framework.response import Response
 
 from .models import Alert
 from .serializers import AlertSerializer
-
+from drf_yasg import openapi
+from drf_yasg.utils import swagger_auto_schema
 
 class AlertViewSet(viewsets.ModelViewSet):
     """
@@ -20,6 +21,7 @@ class AlertViewSet(viewsets.ModelViewSet):
     filter_backends = [DjangoFilterBackend]
     filterset_fields = ['status']
 
+    
     def get_queryset(self):
         """
         Optionally restricts the returned alerts to a given user,
@@ -27,7 +29,10 @@ class AlertViewSet(viewsets.ModelViewSet):
         """
         return self.queryset.filter(user_id=self.request.user)
 
-
+    @swagger_auto_schema(
+        request_body=AlertSerializer,
+        responses={201: openapi.Response('Created', AlertSerializer)},
+    )
     def create(self, request, *args, **kwargs):
             """
             Creates a new alert instance.
@@ -50,7 +55,7 @@ class AlertViewSet(viewsets.ModelViewSet):
                 return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
             serializer.create(serializer.validated_data)
             return Response(serializer.data, status=status.HTTP_201_CREATED)
-
+   
     def list(self, request, *args, **kwargs):
 
         """
@@ -72,6 +77,7 @@ class AlertViewSet(viewsets.ModelViewSet):
 
         cached_alerts = cache.get(cache_key)
         if cached_alerts is not None:
+            
             return Response(cached_alerts)
 
         # If not cached, fetch from the database
@@ -91,24 +97,11 @@ class AlertViewSet(viewsets.ModelViewSet):
         return Response(response_data)
 
     def destroy(self, request, *args, **kwargs):
-        """
-             Deletes an alert instance.
-
-             This method deletes an alert instance identified by the request.
-             It retrieves the alert instance, deletes it, and returns a 204 No Content response on success.
-             If the deletion fails, it returns a 400 Bad Request response with an error message.
-
-             Args:
-                 request (Request): The HTTP request object containing the request data.
-                 *args: Variable length argument list.
-                 **kwargs: Arbitrary keyword arguments.
-
-             Returns:
-                 Response: A DRF Response object with a 204 No Content status on success,
-                           or a 400 Bad Request status with an error message on failure.
-        """
-
-        instance = self.get_object()
-        serializer = self.get_serializer(instance)
-        serializer.delete(instance)
-        return Response(status=status.HTTP_204_NO_CONTENT)
+            
+            """
+            """
+            instance = self.get_object()
+            self.perform_destroy(instance)
+            return Response(status=status.HTTP_204_NO_CONTENT)
+        
+        

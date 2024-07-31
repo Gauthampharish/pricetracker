@@ -19,33 +19,19 @@ This guide will help you set up and run the Price Tracker application using Dock
 Before starting the application, you need to configure environment variables.
 
 #### Environment Variables
-
-Create a `.env` file in the root of your project directory and add the following environment variables:
-
+Edit the following in docker-compose.yml file to configure email.
 ```plaintext
 DEBUG=True
 EMAIL_USER=your_smtp_user
 EMAIL_PASSWORD=your_smtp_password
 EMAIL_HOST=smtp.your-email-provider.com
 EMAIL_PORT=587
-
-# Celery settings
-CELERY_BROKER_URL=redis://redis1:6379/1
-CELERY_RESULT_BACKEND=redis://redis1:6379/1
-CELERY_ACCEPT_CONTENT=json
-CELERY_TASK_SERIALIZER=json
-CELERY_RESULT_SERIALIZER=json
-CELERY_TIMEZONE=UTC
-
-# Redis Cache settings
-REDIS_LOCATION=redis://redis0:6379/0
 ```
 
-Replace the placeholder values with your actual configuration details.
 
 #### Database Configuration
 
-Ensure your PostgreSQL database is running and accessible using the details provided in the `.env` file. Note that PostgreSQL is currently hosted directly on DigitalOcean.
+Ensure your PostgreSQL database is running and accessible using the details in docker-compose.yml file. Note that PostgreSQL is currently hosted directly on DigitalOcean. if postgress is not working please use sqlite
 
 #### Admin User
 
@@ -114,6 +100,7 @@ A default admin user has been created with the following credentials:
   This documentation covers the API endpoints for user authentication and alert management, as well as the technical implementation of a real-time cryptocurrency price alert system. The system monitors prices using Binance's WebSocket API and sends notifications via email when user-defined conditions are met. It utilizes Django for the backend, Celery for task management, Redis for caching and task queuing, and Binance WebSocket API for real-time data.
 
   ## API Documentation
+  Swagger has been added for ease of checking endpoints. You can access Swagger at http://127.0.0.1:8000/swagger/.
 
   ### Authentication
 
@@ -169,6 +156,7 @@ A default admin user has been created with the following credentials:
       ```
 
   ### Alerts
+  
 
   #### Create Alert
   - **Endpoint**: `POST /alerts/create/`
@@ -264,124 +252,159 @@ A default admin user has been created with the following credentials:
 
   ---
 
-  ## System Architecture and Implementation
 
-  ### Overview
-  The system monitors cryptocurrency prices in real-time and triggers alerts when prices reach user-defined targets. It is built using Django for the backend, Celery for asynchronous task handling, Redis as a message broker and caching layer, and Binance WebSocket API for real-time data.
+# Contionous Monitoring
 
-  ### Key Components
+## System Architecture and Implementation
 
-  #### 1. **Django Backend**
-  - **Role**: Manages user data, alert configurations, and database interactions.
-  - **Key Model**: `Alert` - stores details of the cryptocurrency alerts, including the cryptocurrency type, target price, and status.
+### Overview
 
-  #### 2. **WebSocket Client**
-  - **Role**: Connects to the Binance WebSocket API to receive live updates on cryptocurrency prices.
-  - **Operation**:
-    - Connects to the Binance WebSocket endpoint.
-    - Processes incoming price data and checks against active alerts.
+This system monitors cryptocurrency prices in real-time and triggers alerts when prices reach user-defined targets. It is built using Django for the backend, Celery for asynchronous task handling, and Binance WebSocket API for real-time data.
 
-  **Code Snippet**:
-  ```python
-  import asyncio
-  import websockets
-  import json
+### Key Components
 
-  async def binance_websocket(self):
-      uri = "wss://stream.binance.com:9443/ws/!ticker@arr"
-      symbols = await self.get_symbols()
-      async with websockets.connect(uri) as websocket:
-          while True:
-              response = await asyncio.wait_for(websocket.recv(), timeout=1.0)
-              data = json.loads(response)
-              filtered_data = [ticker for ticker in data if ticker['s'] in symbols]
-              for ticker in filtered_data:
-                  await self.process_ticker(ticker, symbols)
-  ```
+#### 1. Django Backend
+- **Role**: Manages user data, alert configurations, and database interactions.
+- **Key Model**: `Alert` - stores details of cryptocurrency alerts, including cryptocurrency type, target price, and status.
 
-  #### 3. **Celery and Redis**
-  - **Role**: Manages background tasks, primarily sending email notifications.
-  - **Functionality**:
-    - Celery executes tasks asynchronously, preventing delays in the main application flow.
-    - Redis queues these tasks, facilitating communication between Django and Celery.
-    - Redis is also used for caching during data fetch operations to enhance performance and reduce database load.
+#### 2. WebSocket Client
+- **Role**: Connects to the Binance WebSocket API to receive live updates on cryptocurrency prices.
+- **Operation**: 
+  - Establishes connection to Binance WebSocket endpoint.
+  - Processes incoming price data and checks against active alerts.
 
-  **Task Example**:
-  ```python
-  from celery import shared_task
-  from django.core.mail import send_mail
-  from django.conf import settings
+```python
+async def binance_websocket(self):
+    symbols = await self.get_symbols()
+    streams = [f"{symbol.lower()}@ticker" for symbol in symbols]
+    uri = f"wss://stream.binance.com:9443/stream?streams={'/'.join(streams)}"
 
-  @shared_task
-  def send_email_task(user_email, symbol):
-      send_mail(
-          'Price Alert Triggered',
-          f'The target price for {symbol} has been reached.',
-          settings.EMAIL_HOST_USER,
-          [user_email],
-          fail_silently=False,
-      )
-  ```
+    while True:
+        try:
+            async with websockets.connect(uri) as websocket:
+                self.stdout.write(self.style.SUCCESS("Connected to Binance WebSocket"))
+                while True:
+                    try:
+                        response = await asyncio.wait_for(websocket.recv(), timeout=1.0)
+                        data = json.loads(response)
+                        if 'data' in data:
+                            ticker = data['data']
+                            await self.process_ticker(ticker, symbols)
+                    except asyncio.TimeoutError:
+                        continue
+                    except websockets.exceptions.ConnectionClosed:
+                        raise
+        except websockets.exceptions.ConnectionClosed:
+            self.stdout.write(self.style.WARNING("WebSocket connection closed. Reconnecting..."))
+            await asyncio.sleep(5)
+        except Exception as e:
+            self.stdout.write(self.style.ERROR(f"Error: {str(e)}. Reconnecting..."))
+            await asyncio.sleep(5)
+```
 
-  #### 4. **Database and Caching Operations**
-  - **Role**: Handles data storage and retrieval for user alerts, with Redis providing caching to improve efficiency.
-  - **Implementation**:
-    - Utilizes Django's ORM with asynchronous capabilities to ensure non-blocking operations.
-    - Redis cache is used to store frequently accessed data, reducing database queries and improving response times.
+#### 3. Celery for Asynchronous Tasks
+- **Role**: Manages background tasks, primarily sending email notifications.
+- **Functionality**:
+  - Celery executes tasks asynchronously, preventing delays in the main application flow.
 
-  **Key Methods**:
-  - `get_alerts`: Retrieves active alerts for a specific cryptocurrency, using caching to optimize performance.
-  - `get_symbols`: Fetches unique cryptocurrency symbols from the database, with results cached in Redis.
-  - `update_alert`: Updates the status of an alert when it is triggered.
+```python
+@shared_task(name='send_email_task')
+def send_email_task(user_email, symbol, price):
+    try:
+        send_mail(
+            'Price Alert Triggered',
+            f'Your alert for {symbol} has been triggered. Current price: {price}',
+            settings.EMAIL_HOST_USER,
+            [user_email],
+            fail_silently=False,
+        )
+        logger.info(f"Email sent successfully to {user_email} for {symbol}")
+    except Exception as e:
+        logger.error(f"Failed to send email to {user_email} for {symbol}. Error: {str(e)}")
+```
 
-  **Code Snippet**:
-  ```python
-  from asgiref.sync import sync_to_async
-  from alertsmanagementserv.models import Alert
-  from django.core.cache import cache
+#### 4. Database Operations
+- **Role**: Handles data storage and retrieval for user alerts.
+- **Implementation**:
+  - Uses Django's ORM with asynchronous capabilities for non-blocking operations.
 
-  @sync_to_async
-  def get_alerts(self, symbol):
-      cache_key = f"alerts_{symbol}"
-      alerts = cache.get(cache_key)
-      if not alerts:
-          alerts = list(Alert.objects.filter(cryptocurrency=symbol, status='created'))
-          cache.set(cache_key, alerts, timeout=60)  # Cache for 60 seconds
-      return alerts
+```python
+@sync_to_async
+def get_alerts(self, symbol):
+    return list(Alert.objects.filter(cryptocurrency=symbol, status='created'))
 
-  @sync_to_async
-  def get_symbols(self):
-      cache_key = "unique_symbols"
-      symbols = cache.get(cache_key)
-      if not symbols:
-          symbols = list(Alert.objects.values_list('cryptocurrency', flat=True).distinct())
-          cache.set(cache_key, symbols, timeout=60)  # Cache for 60 seconds
-      return symbols
+@sync_to_async
+def get_symbols(self):
+    return list(Alert.objects.values_list('cryptocurrency', flat=True).distinct())
 
-  @sync_to_async
-  def update_alert(self, alert, status):
-      alert.status = status
-      alert.save()
-      cache.delete(f"alerts_{alert.cryptocurrency}")
-  ```
+@sync_to_async
+def update_alert(self, alert, status):
+    alert.status = status
+    alert.save()
+```
 
-  ### System Workflow
+## System Workflow
 
-  1. **Real-Time Monitoring**:
-    - The system establishes a WebSocket connection to Binance, receiving continuous updates on cryptocurrency prices.
+1. **Real-Time Monitoring**:
+   - Establishes WebSocket connection to Binance for continuous cryptocurrency price updates.
+   - Uses the Binance WebSocket API endpoint: `wss://stream.binance.com:9443/stream`
+   - Subscribes to multiple ticker streams based on the cryptocurrencies being monitored.
+   - Continuously receives JSON messages containing real-time price data.
 
-  2. **Asynchronous Processing**:
-    - The use of `asyncio` and `websockets` allows the system to handle real-time data efficiently, processing multiple tasks concurrently.
+2. **Asynchronous Processing**:
+   - Uses `asyncio` and `websockets` for efficient handling of real-time data, allowing concurrent task processing.
+   - Implements an event loop to manage multiple asynchronous tasks simultaneously.
+   - Utilizes `async/await` syntax for non-blocking I/O operations.
+   - Handles WebSocket messages asynchronously, preventing bottlenecks in data processing.
 
-  3. **Email Notification**:
-    - When an alert condition is met, an email notification is sent to the user. This process is handled asynchronously via Celery, ensuring it does not block other operations.
+3. **Alert Processing**:
+   - Checks incoming price data against stored alerts.
+   - When an alert condition is met, it triggers the notification process.
+   - Filters incoming data to only process relevant cryptocurrencies.
+   - Compares current prices with target prices set in alerts.
+   - Uses asynchronous database queries to fetch and check alerts efficiently.
 
-  4. **Error Handling and Resilience**:
-    - The system includes robust error handling for WebSocket disconnections and timeouts, ensuring continuous monitoring and stability.
+4. **Email Notification**:
+   - Sends email notifications asynchronously via Celery when alert conditions are met.
+   - Uses Django's email functionality configured with SMTP settings.
+   - Implements a Celery task (`send_email_task`) to handle email sending in the background.
+   - Logs successful email sends and any errors encountered during the process.
 
-  5. **Caching with Redis**:
-    - Redis is used for caching to improve data retrieval speeds and reduce the load on the database. Alerts and symbols are cached, and the cache is invalidated when relevant data changes.
+5. **Error Handling and Resilience**:
+   - Implements robust error handling for WebSocket disconnections and timeouts.
+   - Includes automatic reconnection logic for continuous monitoring.
+   - Uses try-except blocks to catch and handle various exceptions.
+   - Implements a reconnection mechanism with exponential backoff.
+   - Logs errors and reconnection attempts for monitoring and debugging.
 
-  ---
+6. **Data Management**:
+   - Utilizes Django ORM for efficient database operations.
+   - Implements asynchronous database queries to prevent blocking the main process.
+   - Uses `sync_to_async` decorator to make synchronous Django ORM calls asynchronous.
+   - Fetches and updates alert data efficiently using bulk operations where possible.
+   - Implements database connection pooling for improved performance.
 
-  This documentation provides a comprehensive overview of both the API endpoints and the underlying architecture of the cryptocurrency price alert system, offering clarity and guidance for developers interacting with or contributing to the system.
+## Usage
+
+To run the price alert system, use the following Django management command:
+
+```
+python manage.py run_websocket_client
+```
+
+This command initializes the WebSocket client, connects to Binance, and starts monitoring prices and processing alerts.
+
+## Dependencies
+
+- Django: Web framework for the backend system.
+- websockets: Library for building WebSocket clients and servers.
+- asyncio: Python's built-in asynchronous I/O framework.
+- Celery: Distributed task queue for handling background jobs like email sending.
+- asgiref: ASGI specification and utilities, used for sync_to_async operations.
+
+## Note
+
+This system is designed to run continuously. 
+---
+
+This README provides a comprehensive overview of the cryptocurrency price alert system, including its architecture, key components, workflow, and usage instructions. It accurately reflects the system's implementation without Redis caching, offering clarity for developers interacting with or contributing to the system.

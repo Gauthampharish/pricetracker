@@ -24,6 +24,7 @@ django-celery-beat = "^2.6.0"
 django-celery-results = "^2.5.1"
 python-dotenv = "^1.0.1"
 psycopg2-binary = "^2.9.9"
+drf-yasg = "^1.21.7"
 
 
 [build-system]

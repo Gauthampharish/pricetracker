@@ -1,13 +1,10 @@
 from __future__ import absolute_import, unicode_literals
 import os
-import django
 from celery import Celery
+from django.conf import settings
 
-# set the default Django settings module for the 'celery' program.
+# Set the default Django settings module for the 'celery' program.
 os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'core.settings')
-
-# Setup Django
-django.setup()
 
 app = Celery('core')
 
@@ -15,7 +12,5 @@ app = Celery('core')
 # the configuration object to child processes.
 app.config_from_object('django.conf:settings', namespace='CELERY')
 
-# Load task modules from all registered Django app configs.
-app.autodiscover_tasks()
 
-import alertsmanagementserv.management.commands.run_websocket_client
+app.autodiscover_tasks(['alertsmanagementserv.management.commands.run_websocket_client'])

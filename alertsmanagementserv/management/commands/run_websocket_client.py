@@ -9,21 +9,28 @@ from datetime import datetime, timedelta
 from django.core.mail import send_mail
 from django.conf import settings
 
+
+# Import celery and the task
 from celery import shared_task
 
-logger = logging.getLogger(__name__)
-@shared_task
-def send_email_task(user_email, symbol):
-    
-    send_mail(
-        'Price Alert Triggered',
-        f'The target price for {symbol} has been reached.',
-        settings.EMAIL_HOST_USER,
-        [user_email],
-        fail_silently=False,
-    )
 
-class Command(BaseCommand):
+logger = logging.getLogger(__name__)
+
+@shared_task(name='send_email_task')
+def send_email_task(user_email, symbol, price):
+    try:
+        send_mail(
+            'Price Alert Triggered',
+            f'Your alert for {symbol} has been triggered. Current price: {price}',
+            settings.EMAIL_HOST_USER,
+            [user_email],
+            fail_silently=False,
+        )
+        logger.info(f"Email sent successfully to {user_email} for {symbol}")
+    except Exception as e:
+        logger.error(f"Failed to send email to {user_email} for {symbol}. Error: {str(e)}")
+
+class Command(BaseCommand): 
     help = 'Runs the Binance WebSocket client for price alerts for 1 minute'
 
     @sync_to_async
@@ -46,7 +53,15 @@ class Command(BaseCommand):
         return alert.target_price
     
 
-    
+    # @sync_to_async
+    # def send_email(self, alert, symbol, price):
+    #     send_mail(
+    #         'Price Alert Triggered',
+    #         f'Your alert for {symbol} has been triggered. Current price: {price}',
+    #         'from@example.com',
+    #         [alert.user.email],
+    #         fail_silently=False,
+    #     )
         
     async def log_alert(self, symbol, price, alert):
 
@@ -56,7 +71,8 @@ class Command(BaseCommand):
             f"ALERT TRIGGERED: {symbol} at {price}. "
             f"User: {user_email}, Target: {target_price}"
         ))
-        send_email_task.delay(user_email, symbol)
+        send_email_task.delay(user_email, symbol, price)
+
 
     
 
@@ -70,36 +86,40 @@ class Command(BaseCommand):
         
         
         for alert in alerts:
-            if alert.target_price<=price:
+            if alert.target_price==price:
                 # Log alert in a different color
                 await self.log_alert(symbol, price, alert)
-                self.stdout.write(self.style.SUCCESS(
-                    f"ALERT TRIGGERED: {symbol} at {price}. "
-        ))
-                
                 await self.update_alert(alert, 'triggered')
+        
           
     async def binance_websocket(self):
-        uri = "wss://stream.binance.com:9443/ws/!ticker@arr"
-        symbols= await self.get_symbols()
-        async with websockets.connect(uri) as websocket:
-            self.stdout.write(self.style.SUCCESS("Connected to Binance WebSocket"))
-            while True:
-                try:
-                    response = await asyncio.wait_for(websocket.recv(), timeout=1.0)
-                    data = json.loads(response)
-                   
-                   
-                    filtered_data = [ticker for ticker in data if ticker['s'] in symbols]
-                    for ticker in filtered_data:
-                        
-                        await self.process_ticker(ticker,symbols)
-                except asyncio.TimeoutError:
-                    # This allows us to check the time condition more frequently
-                    continue
-                except websockets.exceptions.ConnectionClosed:
-                    self.stdout.write(self.style.WARNING("WebSocket connection closed."))
-                    await asyncio.sleep(5) 
+        symbols = await self.get_symbols()
+        streams = [f"{symbol.lower()}@ticker" for symbol in symbols]
+        uri = f"wss://stream.binance.com:9443/stream?streams={'/'.join(streams)}"
+
+        while True:
+            try:
+                async with websockets.connect(uri) as websocket:
+                    self.stdout.write(self.style.SUCCESS("Connected to Binance WebSocket"))
+                    while True:
+                        try:
+                            response = await asyncio.wait_for(websocket.recv(), timeout=1.0)
+                            data = json.loads(response)
+                            
+                            if 'data' in data:
+                                ticker = data['data']
+                                await self.process_ticker(ticker, symbols)
+                        except asyncio.TimeoutError:
+                            # This allows us to check the time condition more frequently
+                            continue
+                        except websockets.exceptions.ConnectionClosed:
+                            raise  # Re-raise to trigger reconnection
+            except websockets.exceptions.ConnectionClosed:
+                self.stdout.write(self.style.WARNING("WebSocket connection closed. Reconnecting..."))
+                await asyncio.sleep(5)
+            except Exception as e:
+                self.stdout.write(self.style.ERROR(f"Error: {str(e)}. Reconnecting..."))
+                await asyncio.sleep(5)
             
         
 

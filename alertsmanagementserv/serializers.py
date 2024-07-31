@@ -60,17 +60,4 @@ class AlertSerializer(serializers.ModelSerializer):
         except Exception as e:
             raise serializers.ValidationError(f"Error creating alert: {str(e)}")
 
-    def delete(self, instance):
-        """
-        Delete an Alert instance.
-
-        Args:
-            instance (Alert): The Alert instance to delete.
-
-        Raises:
-            serializers.ValidationError: If there is an error during the deletion of the Alert instance.
-        """
-        try:
-            instance.delete()
-        except Exception as e:
-            raise serializers.ValidationError(f"Error deleting alert: {str(e)}")
+   
