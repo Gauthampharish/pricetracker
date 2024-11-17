@@ -14,10 +14,10 @@ services:
       - EMAIL_PASSWORD=your_smtp_password
       - EMAIL_HOST=smtp.your-email-provider.com
       - EMAIL_PORT=587
-      - POSTGRES_DB=mydb
-      - POSTGRES_USER=postgres
-      - POSTGRES_PASSWORD=password
-      - POSTGRES_HOST=192.168.0.49
+      - POSTGRES_DB=your_database_name
+      - POSTGRES_USER=meity1234
+      - POSTGRES_PASSWORD=meity1234
+      - POSTGRES_HOST=localhost
       - POSTGRES_PORT=5432
       # Celery settings
       - CELERY_BROKER_URL=redis://redis1:6379/1
